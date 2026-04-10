@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WDM接続状況 参照ツール（視覚化版）</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#121a30; --panel2:#17213d; --text:#e9eefc; --muted:#a8b1c9;
+      --accent:#5aa9ff; --ok:#3ddc97; --warn:#ffcc66; --bad:#ff7a7a; --line:#273255;
+      --lb:#2b6cff; --hb:#cc6b1d; --chip:#24335a; --box:#0d1429;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:"Segoe UI","Meiryo","Yu Gothic UI",sans-serif; background:var(--bg); color:var(--text);}
+    .wrap{max-width:1500px; margin:0 auto; padding:20px;}
+    .title{font-size:28px; font-weight:700; margin:0 0 8px;}
+    .sub{color:var(--muted); margin:0 0 18px; line-height:1.6}
+    .grid{display:grid; grid-template-columns:380px 1fr; gap:16px;}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:0 8px 30px rgba(0,0,0,.25)}
+    .card h2{font-size:18px; margin:0 0 12px;}
+    .row{margin-bottom:12px;}
+    .label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px;}
+    input[type="text"], textarea, select{
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid #39476e;
+      background:#0c142a; color:var(--text); outline:none;
+    }
+    textarea{min-height:100px; resize:vertical;}
+    input[type="file"]{width:100%; color:var(--text);}
+    .check{display:flex; align-items:center; gap:8px; margin:6px 0;}
+    .btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+    button{
+      background:#1e2b50; color:var(--text); border:1px solid #46609d; border-radius:10px;
+      padding:10px 14px; cursor:pointer; font-weight:600;
+    }
+    button.primary{background:#0f5fd8; border-color:#3d8bff;}
+    button.good{background:#0f7c53; border-color:#25b87f;}
+    button.warn{background:#7c5a0f; border-color:#c89a30;}
+    button:disabled{opacity:.5; cursor:not-allowed;}
+    .pill{display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid var(--line); background:#0c142a; color:var(--muted); font-size:12px; margin-right:6px; margin-bottom:6px}
+    .status{padding:10px 12px; border-radius:10px; background:#0c142a; border:1px solid var(--line); color:var(--muted); line-height:1.6;}
+    .status.ok{border-color:#1a6d4f; color:#c8ffe6;}
+    .status.bad{border-color:#7a3636; color:#ffd8d8;}
+    .result-meta{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px;}
+    .counts{font-weight:700;}
+    .table-wrap{overflow:auto; border:1px solid var(--line); border-radius:12px;}
+    table{width:100%; border-collapse:collapse; background:#0d1429;}
+    th,td{border-bottom:1px solid #243050; padding:8px 10px; text-align:left; white-space:nowrap; font-size:13px;}
+    th{position:sticky; top:0; background:#18264a; z-index:1;}
+    tr:hover td{background:#101a35;}
+    .missing{margin-top:12px; padding:10px 12px; border-radius:10px; background:#2d220e; border:1px solid #8a6a1d; color:#ffe6a8; line-height:1.6;}
+    .small{font-size:12px; color:var(--muted);}
+    .drop{
+      border:1.5px dashed #4d6db5; border-radius:12px; padding:18px; text-align:center; color:var(--muted);
+      background:rgba(90,169,255,.05); transition:.15s ease;
+    }
+    .drop.drag{background:rgba(90,169,255,.14); border-color:#86b9ff; color:#dceaff;}
+    code{background:#0a1122; padding:2px 6px; border-radius:6px; border:1px solid #243050}
+
+    .legend{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 0;}
+    .legend .pill{margin:0}
+    .visual-wrap{margin-top:14px; display:flex; flex-direction:column; gap:16px;}
+    .site-card{
+      border:1px solid var(--line); border-radius:16px; background:rgba(8,12,24,.4);
+      padding:14px;
+    }
+    .site-head{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;}
+    .site-title{font-size:20px; font-weight:700;}
+    .site-sub{color:var(--muted); font-size:12px}
+    .wdm-group{border:1px solid #2c3961; border-radius:14px; background:#0a1225; padding:12px; margin-top:10px;}
+    .wdm-group-head{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;}
+    .wdm-stack{
+      display:grid;
+      grid-template-columns:minmax(320px, 1fr);
+      gap:14px;
+      justify-items:start;
+    }
+    .wdm-box{
+      width:min(560px, 100%);
+      border:2px solid #50618f;
+      border-radius:12px;
+      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      padding:10px 12px;
+      position:relative;
+    }
+    .wdm-box.lb{border-color:rgba(43,108,255,.9); box-shadow:0 0 0 1px rgba(43,108,255,.18) inset;}
+    .wdm-box.hb{border-color:rgba(204,107,29,.9); box-shadow:0 0 0 1px rgba(204,107,29,.18) inset;}
+    .wdm-box.other{border-color:#6d78a8;}
+    .wdm-box-title{font-size:20px; font-weight:700; margin-bottom:8px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+    .type-pill{font-size:12px; border-radius:999px; padding:3px 8px; border:1px solid rgba(255,255,255,.2);}
+    .type-pill.lb{background:rgba(43,108,255,.18); color:#dbe7ff; border-color:rgba(43,108,255,.55);}
+    .type-pill.hb{background:rgba(204,107,29,.18); color:#ffe9d4; border-color:rgba(204,107,29,.55);}
+    .type-pill.other{background:rgba(255,255,255,.08); color:#e5ecff; border-color:rgba(255,255,255,.2);}
+    .wdm-meta{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
+    .mini-pill{display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:999px; background:#111a34; border:1px solid #334671; font-size:12px; color:#d5defa;}
+    .port-list{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
+    .port-row{
+      display:grid; grid-template-columns:54px 1fr; gap:10px; align-items:flex-start;
+      border-bottom:1px dashed rgba(255,255,255,.06); padding:5px 0;
+    }
+    .port-row:last-child{border-bottom:none}
+    .port-no{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-height:28px; border-radius:8px; background:#101a35; border:1px solid #2a3a62; font-weight:700;
+    }
+    .port-bands{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+    .band-chip{
+      display:inline-flex; flex-direction:column; gap:1px; padding:5px 8px; border-radius:10px;
+      background:var(--chip); border:1px solid #425688; line-height:1.2;
+      max-width:100%;
+    }
+    .band-main{font-size:12px; font-weight:700; color:#f2f5ff}
+    .band-sub{font-size:11px; color:#b8c4ea}
+    .band-empty{font-size:12px; color:#6f7da8; padding-top:5px;}
+    .cascade{
+      display:flex; align-items:center; gap:10px; color:#d9e6ff; margin:2px 0 4px 42px; font-size:13px;
+    }
+    .cascade-line{
+      width:2px; height:18px; background:linear-gradient(180deg, #6aa0ff, #f0a85d);
+      margin-left:18px; border-radius:99px;
+    }
+    .note-box{
+      margin-top:10px; padding:8px 10px; border-radius:10px; background:#11182d; border:1px solid #2a375d;
+      color:#c6d3fa; font-size:12px; line-height:1.5;
+    }
+    details.summary-box{margin-top:12px;}
+    details.summary-box > summary{cursor:pointer; color:#d5defa;}
+    @media (max-width:980px){ .grid{grid-template-columns:1fr;} .wdm-box{width:100%;} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">WDM接続状況 参照ツール（視覚化版）v1.3</h1>
+    <p class="sub">
+      最新の <code>【5G_Pre5G】WDM接続状況共有_***.xlsx</code> を都度読み込んで、サイトIDから必要列を抽出し、<br>
+	表だけでなく <strong>WDM番号 / 種別 / ポート配置</strong> が見える図でも表示します。<br>
+	Excelを毎回フィルタでこねる作業は、地味に人間の尊厳を削るのでやめた方がいいです。
+    </p>
+
+    <div class="grid">
+      <section class="card">
+        <h2>1. Excel読込</h2>
+        <div class="row">
+          <label class="label">Excelファイル選択</label>
+          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+        </div>
+        <div id="dropZone" class="drop row">ここに Excel / CSV をドラッグ＆ドロップしても読めます</div>
+        <div id="loadStatus" class="status">まだファイル未読込です。</div>
+
+        <div class="row" style="margin-top:14px;">
+          <h2>2. 検索条件</h2>
+          <label class="label">検索キー</label>
+          <select id="keyField">
+            <option value="サイトID">サイトID</option>
+            <option value="5GJサイトID">5GJサイトID</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label class="label">検索値（複数可：改行 / カンマ / スペース区切り）</label>
+          <textarea id="keyword" placeholder="例
+S270328631
+S270991022"></textarea>
+          <div class="small">複数まとめ検索可。1件ずつコピペするのは、だいたい人力バグの温床です。</div>
+        </div>
+
+        <label class="check"><input id="exactMatch" type="checkbox" checked> 完全一致で検索</label>
+        <label class="check"><input id="dedupe" type="checkbox" checked> 完全重複行を除く</label>
+        <label class="check"><input id="keepInputOrder" type="checkbox" checked> 入力したID順で並べる</label>
+
+        <div class="btns">
+          <button id="searchBtn" class="primary" disabled>抽出</button>
+          <button id="clearBtn">クリア</button>
+        </div>
+
+        <div class="row" style="margin-top:16px;">
+          <h2>3. 出力</h2>
+          <div class="btns">
+            <button id="copyTsvBtn" class="good" disabled>TSVコピー</button>
+            <button id="saveCsvBtn" class="warn" disabled>CSV保存</button>
+          </div>
+          <div class="small" style="margin-top:8px;">
+            抽出列：プロジェクト名 / セクタ管理番号 / サイトID / Band / WDM管理番号 / Link（WDMport） / Link（WDMport2） / WDM種別 / WDMカスケード情報 / サイトWDM管理ID / R503_BB_PORT / R503_RU_PORT
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="result-meta">
+          <span class="pill" id="fileNamePill">ファイル未読込</span>
+          <span class="pill" id="sheetNamePill">シート -</span>
+          <span class="pill" id="rowCountPill">行数 -</span>
+          <span class="pill" id="hitCountPill">抽出件数 0</span>
+        </div>
+
+        <div id="resultStatus" class="status">ここに抽出結果が表示されます。</div>
+        <div id="missingBox" class="missing" style="display:none;"></div>
+
+        <div class="legend">
+          <span class="pill">表示順: サイト → サイトWDM管理ID → WDM番号(LB/HB) → ポート</span>
+          <span class="pill">青 = LB</span>
+          <span class="pill">橙 = HB</span>
+          <span class="pill">ポート横に Band / セクタ / R503 を表示</span>
+        </div>
+
+        <div id="visualWrap" class="visual-wrap"></div>
+
+        <details class="summary-box">
+          <summary>表形式も見る</summary>
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="resultTable">
+              <thead><tr id="theadRow"></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const REQUIRED_COLS = [
+      "プロジェクト名",
+      "セクタ管理番号",
+      "サイトID",
+      "Band",
+      "WDM管理番号",
+      "Link（WDMport）",
+      "Link（WDMport2）",
+      "WDM種別",
+      "WDMカスケード情報",
+      "サイトWDM管理ID",
+      "R503_BB_PORT",
+      "R503_RU_PORT"
+    ];
+
+    let rawRows = [];
+    let resultRows = [];
+    let matchedRows = [];
+    let currentFileName = "";
+    let currentSheetName = "";
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(v){
+      return String(v ?? "").replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[s]));
+    }
+
+    function normalize(v){
+      return String(v ?? "")
+        .replace(/\u3000/g, " ")
+        .replace(/\r?\n/g, " ")
+        .trim();
+    }
+
+    function displayValue(v){
+      if (v === null || v === undefined) return "";
+      if (typeof v === "number") return Number.isInteger(v) ? String(v) : String(v);
+      return normalize(v);
+    }
+
+    function portValue(v){
+      const s = normalize(v);
+      if (!s) return null;
+      const n = Number(s);
+      if (Number.isFinite(n)) return Math.round(n);
+      const m = s.match(/\d+/);
+      return m ? Number(m[0]) : null;
+    }
+
+    function updateStatus(el, text, cls=""){
+      el.className = "status" + (cls ? " " + cls : "");
+      el.innerHTML = text;
+    }
+
+    function parseInputKeywords(text){
+      return Array.from(new Set(
+        String(text || "")
+          .split(/[\n,\t ]+/)
+          .map(s => s.trim())
+          .filter(Boolean)
+      ));
+    }
+
+    function buildTable(rows){
+      const thead = $("theadRow");
+      const tbody = $("tbody");
+      thead.innerHTML = REQUIRED_COLS.map(c => `<th>${escapeHtml(c)}</th>`).join("");
+      tbody.innerHTML = "";
+
+      if (!rows.length){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="${REQUIRED_COLS.length}" style="color:#a8b1c9;">該当なし</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = REQUIRED_COLS.map(c => `<td>${escapeHtml(displayValue(r[c]))}</td>`).join("");
+        tbody.appendChild(tr);
+      });
+    }
+
+    function rowsToTSV(rows){
+      const lines = [];
+      lines.push(REQUIRED_COLS.join("\t"));
+      for (const r of rows){
+        lines.push(REQUIRED_COLS.map(c => {
+          const s = displayValue(r[c]);
+          return String(s).replace(/\t/g, " ").replace(/\r?\n/g, " ");
+        }).join("\t"));
+      }
+      return lines.join("\n");
+    }
+
+    function downloadText(filename, text, mime){
+      const blob = new Blob([text], {type: mime});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    async function copyTSV(){
+      if (!resultRows.length) return;
+      const tsv = rowsToTSV(resultRows);
+      try{
+        await navigator.clipboard.writeText(tsv);
+        updateStatus($("resultStatus"), `TSVをコピーしました。<br>Excelへ貼り付ければ終わりです。珍しく機械が素直です。`, "ok");
+      }catch(e){
+        updateStatus($("resultStatus"), `コピー失敗。ブラウザ権限が渋っています。CSV保存に逃げてください。`, "bad");
+      }
+    }
+
+    function saveCSV(){
+      if (!resultRows.length) return;
+      const csv = [REQUIRED_COLS.join(",")]
+        .concat(resultRows.map(r => REQUIRED_COLS.map(c => {
+          const s = displayValue(r[c]).replace(/"/g, '""');
+          return `"${s}"`;
+        }).join(",")))
+        .join("\r\n");
+      const dt = new Date();
+      const stamp = [
+        dt.getFullYear(),
+        String(dt.getMonth()+1).padStart(2,"0"),
+        String(dt.getDate()).padStart(2,"0"),
+        "_",
+        String(dt.getHours()).padStart(2,"0"),
+        String(dt.getMinutes()).padStart(2,"0"),
+        String(dt.getSeconds()).padStart(2,"0")
+      ].join("");
+      downloadText(`wdm_extract_${stamp}.csv`, csv, "text/csv;charset=utf-8;");
+    }
+
+    function ensureHeaders(rows){
+      if (!rows.length) return {ok:false, missing:["データ行なし"]};
+      const headers = Object.keys(rows[0] || {});
+      const must = Array.from(new Set([...REQUIRED_COLS, "サイトID", "5GJサイトID"]));
+      const missing = must.filter(h => !headers.includes(h));
+      return {ok: missing.length === 0, missing};
+    }
+
+    function typeClass(type){
+      const t = normalize(type).toUpperCase();
+      if (t === "LB") return "lb";
+      if (t === "HB") return "hb";
+      return "other";
+    }
+
+    function unique(arr){
+      return Array.from(new Set(arr.filter(Boolean)));
+    }
+
+    function buildBandChipHtml(item){
+      const sector = item.sector || "-";
+      const r503 = [item.r503bb ? `BB:${item.r503bb}` : "", item.r503ru ? `RU:${item.r503ru}` : ""].filter(Boolean).join(" / ");
+      const titleBits = [
+        item.band ? `Band=${item.band}` : "",
+        item.sector ? `セクタ=${item.sector}` : "",
+        item.project ? `PJ=${item.project}` : "",
+        item.link2 ? `port2=${item.link2}` : "",
+        r503 ? `R503 ${r503}` : ""
+      ].filter(Boolean).join(" | ");
+      return `<span class="band-chip" title="${escapeHtml(titleBits)}">
+        <span class="band-main">${escapeHtml(item.band || "(Band空)")}${item.count > 1 ? ` ×${item.count}` : ""}</span>
+        <span class="band-sub">${escapeHtml(sector)}${r503 ? ` / ${escapeHtml(r503)}` : ""}</span>
+      </span>`;
+    }
+
+    function summarizePortItems(rows, portNo){
+      const items = [];
+      rows.forEach(r => {
+        const p1 = portValue(r["Link（WDMport）"]);
+        const p2 = portValue(r["Link（WDMport2）"]);
+        if (p1 === portNo || p2 === portNo){
+          items.push({
+            band: displayValue(r["Band"]),
+            sector: displayValue(r["セクタ管理番号"]),
+            project: displayValue(r["プロジェクト名"]),
+            r503bb: displayValue(r["R503_BB_PORT"]),
+            r503ru: displayValue(r["R503_RU_PORT"]),
+            link2: p2 && p2 !== p1 ? `to ${p2}` : ""
+          });
+        }
+      });
+
+      const map = new Map();
+      items.forEach(it => {
+        const key = JSON.stringify([it.band, it.sector, it.r503bb, it.r503ru, it.link2]);
+        if (!map.has(key)) map.set(key, {...it, count:0});
+        map.get(key).count += 1;
+      });
+      return Array.from(map.values());
+    }
+
+    function renderPortsHtml(boxRows){
+      const usedPorts = [];
+      boxRows.forEach(r => {
+        const p1 = portValue(r["Link（WDMport）"]);
+        const p2 = portValue(r["Link（WDMport2）"]);
+        if (p1 !== null) usedPorts.push(p1);
+        if (p2 !== null) usedPorts.push(p2);
+      });
+      const maxPort = usedPorts.length ? Math.max(12, ...usedPorts) : 12;
+      const startPort = 4;
+      let html = `<div class="port-list">`;
+      for (let p = startPort; p <= maxPort; p++){
+        const items = summarizePortItems(boxRows, p);
+        html += `<div class="port-row">
+          <div class="port-no">${p}</div>
+          <div class="port-bands">${items.length ? items.map(buildBandChipHtml).join("") : `<span class="band-empty">-</span>`}</div>
+        </div>`;
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    function renderVisual(rows){
+      const wrap = $("visualWrap");
+      wrap.innerHTML = "";
+
+      if (!rows.length){
+        wrap.innerHTML = `<div class="note-box">図表示するデータがありません。</div>`;
+        return;
+      }
+
+      const siteMap = new Map();
+      rows.forEach(r => {
+        const site = displayValue(r["サイトID"]) || "(サイトID空)";
+        if (!siteMap.has(site)) siteMap.set(site, []);
+        siteMap.get(site).push(r);
+      });
+
+      siteMap.forEach((siteRows, siteId) => {
+        const siteCard = document.createElement("div");
+        siteCard.className = "site-card";
+
+        const projectNames = unique(siteRows.map(r => displayValue(r["プロジェクト名"])));
+        const bandNames = unique(siteRows.map(r => displayValue(r["Band"])));
+
+        let siteHtml = `
+          <div class="site-head">
+            <div class="site-title">${escapeHtml(siteId)}</div>
+            <span class="pill">件数 ${siteRows.length}</span>
+            ${projectNames.slice(0,4).map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")}
+          </div>
+          <div class="site-sub">Band: ${escapeHtml(bandNames.join(" / ")) || "-"}</div>
+        `;
+
+        const groupMap = new Map();
+        siteRows.forEach(r => {
+          const groupKey = displayValue(r["サイトWDM管理ID"]) || displayValue(r["WDM管理番号"]) || "(WDM管理ID空)";
+          if (!groupMap.has(groupKey)) groupMap.set(groupKey, []);
+          groupMap.get(groupKey).push(r);
+        });
+
+        groupMap.forEach((gRows, groupKey) => {
+          const cascadeTargets = unique(gRows.map(r => displayValue(r["WDMカスケード情報"])));
+          const wdmMap = new Map();
+          gRows.forEach(r => {
+            const key = [displayValue(r["WDM種別"]), displayValue(r["WDM管理番号"])].join("||");
+            if (!wdmMap.has(key)) wdmMap.set(key, []);
+            wdmMap.get(key).push(r);
+          });
+
+          const orderedBoxes = Array.from(wdmMap.entries()).sort((a,b) => {
+            const [atype, anum] = a[0].split("||");
+            const [btype, bnum] = b[0].split("||");
+            const order = (t) => t === "LB" ? 0 : (t === "HB" ? 1 : 9);
+            if (order(atype) !== order(btype)) return order(atype) - order(btype);
+            return anum.localeCompare(bnum, 'ja');
+          });
+
+          siteHtml += `
+            <div class="wdm-group">
+              <div class="wdm-group-head">
+                <span class="pill">サイトWDM管理ID ${escapeHtml(groupKey)}</span>
+                ${cascadeTargets.length ? cascadeTargets.map(v => `<span class="pill">カスケード ${escapeHtml(v)}</span>`).join("") : `<span class="pill">カスケード情報 -</span>`}
+              </div>
+              <div class="wdm-stack">
+          `;
+
+          orderedBoxes.forEach(([mapKey, boxRows], idx) => {
+            const [type, num] = mapKey.split("||");
+            const tClass = typeClass(type);
+            const sectors = unique(boxRows.map(r => displayValue(r["セクタ管理番号"])));
+            const bands = unique(boxRows.map(r => displayValue(r["Band"])));
+            const r503bb = unique(boxRows.map(r => displayValue(r["R503_BB_PORT"])));
+            const r503ru = unique(boxRows.map(r => displayValue(r["R503_RU_PORT"])));
+            siteHtml += `
+              <div class="wdm-box ${tClass}">
+                <div class="wdm-box-title">
+                  <span>${escapeHtml(num || "(WDM管理番号空)")}</span>
+                  <span class="type-pill ${tClass}">${escapeHtml(type || "-")}</span>
+                </div>
+                <div class="wdm-meta">
+                  <span class="mini-pill">Band ${escapeHtml(bands.join(" / ") || "-")}</span>
+                  <span class="mini-pill">セクタ ${escapeHtml(sectors.length ? sectors.join(", ") : "-")}</span>
+                  <span class="mini-pill">R503_BB ${escapeHtml(r503bb.join(", ") || "-")}</span>
+                  <span class="mini-pill">R503_RU ${escapeHtml(r503ru.join(", ") || "-")}</span>
+                </div>
+                ${renderPortsHtml(boxRows)}
+              </div>
+            `;
+            if (idx < orderedBoxes.length - 1){
+              siteHtml += `<div class="cascade"><div class="cascade-line"></div><div>カスケード / 次段WDM</div></div>`;
+            }
+          });
+
+          siteHtml += `</div></div>`;
+        });
+
+        siteCard.innerHTML = siteHtml;
+        wrap.appendChild(siteCard);
+      });
+    }
+
+    function search(){
+      const keys = parseInputKeywords($("keyword").value);
+      const keyField = $("keyField").value;
+      const exact = $("exactMatch").checked;
+      const dedupe = $("dedupe").checked;
+      const keepOrder = $("keepInputOrder").checked;
+
+      if (!rawRows.length){
+        updateStatus($("resultStatus"), "先にExcelを読み込んでください。データ無しで検索するのは祈祷です。", "bad");
+        return;
+      }
+      if (!keys.length){
+        updateStatus($("resultStatus"), "検索値を入力してください。", "bad");
+        return;
+      }
+
+      const keyIndex = new Map(keys.map((k,i) => [k, i]));
+      let filtered = rawRows.filter(row => {
+        const val = normalize(row[keyField]);
+        if (!val) return false;
+        return exact ? keys.includes(val) : keys.some(k => val.includes(k));
+      });
+
+      if (dedupe){
+        const seen = new Set();
+        filtered = filtered.filter(r => {
+          const sig = JSON.stringify(REQUIRED_COLS.map(c => displayValue(r[c])));
+          if (seen.has(sig)) return false;
+          seen.add(sig);
+          return true;
+        });
+      }
+
+      if (keepOrder){
+        filtered.sort((a,b) => {
+          const av = normalize(a[keyField]);
+          const bv = normalize(b[keyField]);
+          const ai = exact ? (keyIndex.has(av) ? keyIndex.get(av) : 999999) : keys.findIndex(k => av.includes(k));
+          const bi = exact ? (keyIndex.has(bv) ? keyIndex.get(bv) : 999999) : keys.findIndex(k => bv.includes(k));
+          if (ai !== bi) return ai - bi;
+          return normalize(a["セクタ管理番号"]).localeCompare(normalize(b["セクタ管理番号"]), 'ja');
+        });
+      }
+
+      matchedRows = filtered.slice();
+
+      resultRows = filtered.map(r => {
+        const out = {};
+        REQUIRED_COLS.forEach(c => out[c] = displayValue(r[c]));
+        return out;
+      });
+
+      const foundKeys = new Set(filtered.map(r => normalize(r[keyField])));
+      const missingKeys = exact ? keys.filter(k => !foundKeys.has(k)) : [];
+
+      $("hitCountPill").textContent = `抽出件数 ${resultRows.length}`;
+      $("copyTsvBtn").disabled = resultRows.length === 0;
+      $("saveCsvBtn").disabled = resultRows.length === 0;
+
+      if (resultRows.length){
+        updateStatus($("resultStatus"),
+          `抽出完了。<br><span class="counts">${resultRows.length}</span> 件ヒット / 検索キー <code>${escapeHtml(keyField)}</code> / ${exact ? "完全一致" : "部分一致"}<br>視覚図は下、表は折りたたみ内です。`,
+          "ok");
+      } else {
+        updateStatus($("resultStatus"), `該当なし。検索キー <code>${escapeHtml(keyField)}</code> を見直してください。`, "bad");
+      }
+
+      if (missingKeys.length){
+        $("missingBox").style.display = "";
+        $("missingBox").innerHTML = `未ヒットの入力ID：<br>${missingKeys.map(v => `<code>${escapeHtml(v)}</code>`).join(" ")}`;
+      } else {
+        $("missingBox").style.display = "none";
+        $("missingBox").innerHTML = "";
+      }
+
+      renderVisual(matchedRows);
+      buildTable(resultRows);
+    }
+
+    function toRowsFromWorkbook(workbook){
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, {defval:"", raw:false});
+      return {sheetName, rows};
+    }
+
+    async function readFile(file){
+      if (!file) return;
+      currentFileName = file.name;
+      $("fileNamePill").textContent = file.name;
+
+      if (typeof XLSX === "undefined"){
+        updateStatus($("loadStatus"),
+          `Excel読込ライブラリの取得に失敗しました。社内NWでCDNが塞がれている可能性があります。CSVなら読めますが、XLSXはこのままだと無理です。`,
+          "bad");
+        return;
+      }
+
+      try{
+        const buf = await file.arrayBuffer();
+        let rows = [];
+        let sheetName = "Sheet1";
+
+        if (/\.csv$/i.test(file.name)){
+          const text = new TextDecoder("utf-8").decode(buf);
+          const wb = XLSX.read(text, {type:"string"});
+          const parsed = toRowsFromWorkbook(wb);
+          rows = parsed.rows;
+          sheetName = parsed.sheetName;
+        }else{
+          const wb = XLSX.read(buf, {type:"array"});
+          const parsed = toRowsFromWorkbook(wb);
+          rows = parsed.rows;
+          sheetName = parsed.sheetName;
+        }
+
+        const headerCheck = ensureHeaders(rows);
+        if (!headerCheck.ok){
+          rawRows = [];
+          resultRows = [];
+          matchedRows = [];
+          $("searchBtn").disabled = true;
+          $("copyTsvBtn").disabled = true;
+          $("saveCsvBtn").disabled = true;
+          $("sheetNamePill").textContent = "シート -";
+          $("rowCountPill").textContent = "行数 -";
+          updateStatus($("loadStatus"),
+            `必須列不足。<br>不足列: ${headerCheck.missing.map(escapeHtml).join(" / ")}`,
+            "bad");
+          renderVisual([]);
+          buildTable([]);
+          return;
+        }
+
+        rawRows = rows;
+        currentSheetName = sheetName;
+        $("sheetNamePill").textContent = `シート ${sheetName}`;
+        $("rowCountPill").textContent = `行数 ${rows.length}`;
+        $("searchBtn").disabled = false;
+        updateStatus($("loadStatus"),
+          `読込完了。<br>ファイル: <code>${escapeHtml(file.name)}</code><br>シート: <code>${escapeHtml(sheetName)}</code><br>データ行数: <code>${rows.length}</code>`,
+          "ok");
+        updateStatus($("resultStatus"), "検索条件を入れて「抽出」を押してください。", "");
+        $("hitCountPill").textContent = `抽出件数 0`;
+        $("copyTsvBtn").disabled = true;
+        $("saveCsvBtn").disabled = true;
+        $("missingBox").style.display = "none";
+        $("missingBox").innerHTML = "";
+        renderVisual([]);
+        buildTable([]);
+      }catch(err){
+        rawRows = [];
+        resultRows = [];
+        matchedRows = [];
+        $("searchBtn").disabled = true;
+        updateStatus($("loadStatus"), `読込失敗。<br>${escapeHtml(err.message || String(err))}`, "bad");
+        renderVisual([]);
+      }
+    }
+
+    $("fileInput").addEventListener("change", e => readFile(e.target.files[0]));
+    $("searchBtn").addEventListener("click", search);
+    $("copyTsvBtn").addEventListener("click", copyTSV);
+    $("saveCsvBtn").addEventListener("click", saveCSV);
+    $("clearBtn").addEventListener("click", () => {
+      $("keyword").value = "";
+      resultRows = [];
+      matchedRows = [];
+      $("hitCountPill").textContent = `抽出件数 0`;
+      $("copyTsvBtn").disabled = true;
+      $("saveCsvBtn").disabled = true;
+      $("missingBox").style.display = "none";
+      $("missingBox").innerHTML = "";
+      updateStatus($("resultStatus"), "入力をクリアしました。", "");
+      renderVisual([]);
+      buildTable([]);
+    });
+
+    const drop = $("dropZone");
+    ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => {
+      e.preventDefault(); e.stopPropagation(); drop.classList.add("drag");
+    }));
+    ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => {
+      e.preventDefault(); e.stopPropagation(); drop.classList.remove("drag");
+    }));
+    drop.addEventListener("drop", e => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) {
+        $("fileInput").files = e.dataTransfer.files;
+        readFile(file);
+      }
+    });
+
+    renderVisual([]);
+    buildTable([]);
+  </script>
+</body>
+</html>
