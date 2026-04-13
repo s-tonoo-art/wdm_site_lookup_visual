@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WDM接続状況 参照ツール（視覚化版）</title>
+  <title>WDM接続状況 参照ツール（視覚化版 v1.5 / R503接続表示強化）</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root{
@@ -75,6 +75,116 @@
       gap:14px;
       justify-items:start;
     }
+
+    .wdm-flow-row{
+      display:grid;
+      grid-template-columns:minmax(320px, 560px) minmax(240px, 320px);
+      gap:16px;
+      align-items:stretch;
+      width:min(920px, 100%);
+    }
+    .wdm-side{
+      position:relative;
+      border:1px solid #41527f;
+      border-radius:12px;
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      padding:12px 12px 12px 18px;
+      min-height:100%;
+    }
+    .wdm-side::before{
+      content:"";
+      position:absolute;
+      left:-12px;
+      top:50%;
+      width:12px;
+      height:2px;
+      background:linear-gradient(90deg, #8ab6ff, #f6be78);
+      transform:translateY(-50%);
+      border-radius:99px;
+    }
+    .wdm-side::after{
+      content:"";
+      position:absolute;
+      left:-5px;
+      top:calc(50% - 4px);
+      width:8px;
+      height:8px;
+      border-top:2px solid #f6be78;
+      border-right:2px solid #f6be78;
+      transform:rotate(45deg);
+    }
+    .wdm-side-title{
+      font-size:14px;
+      font-weight:700;
+      margin-bottom:8px;
+      color:#dce8ff;
+    }
+    .wdm-side-note{
+      font-size:11px;
+      color:#9eb0db;
+      margin-bottom:8px;
+      line-height:1.4;
+    }
+    .r503-link-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .r503-link-item{
+      border:1px solid #31456f;
+      border-radius:10px;
+      background:#0d1730;
+      padding:8px 10px;
+    }
+    .r503-link-top{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+      margin-bottom:4px;
+      font-size:12px;
+    }
+    .r503-link-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:3px 8px;
+      border-radius:999px;
+      background:#111a34;
+      border:1px solid #384d79;
+      color:#e4ebff;
+      font-size:12px;
+      font-weight:700;
+    }
+    .r503-link-arrow{
+      color:#f6be78;
+      font-weight:700;
+    }
+    .r503-link-main{
+      font-size:13px;
+      font-weight:700;
+      line-height:1.4;
+      color:#f2f5ff;
+    }
+    .r503-link-sub{
+      font-size:11px;
+      color:#aebbe1;
+      line-height:1.4;
+      margin-top:3px;
+    }
+    .wdm-side-empty{
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#6f7da8;
+      font-size:12px;
+      border:1px dashed #2d3d67;
+      border-radius:10px;
+      background:#0c1428;
+      min-height:110px;
+    }
+
     .wdm-box{
       width:min(560px, 100%);
       border:2px solid #50618f;
@@ -119,22 +229,82 @@
       width:2px; height:18px; background:linear-gradient(180deg, #6aa0ff, #f0a85d);
       margin-left:18px; border-radius:99px;
     }
+
+    .r503-section{
+      margin:14px 0 10px;
+      border:1px solid #34436f;
+      border-radius:14px;
+      background:#091120;
+      padding:12px;
+    }
+    .r503-section-head{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;}
+    .r503-card{
+      border:1px solid #42527f;
+      border-radius:14px;
+      background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+      padding:12px;
+      margin-top:10px;
+    }
+    .r503-card-head{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;}
+    .r503-title{font-size:18px; font-weight:700;}
+    .r503-grid{
+      display:grid;
+      grid-template-columns:minmax(180px, 1.1fr) 130px minmax(220px, 1fr);
+      gap:8px;
+      align-items:stretch;
+    }
+    .r503-head{
+      font-size:12px;
+      color:#bed0ff;
+      padding:6px 10px;
+      border-radius:10px;
+      background:#162344;
+      border:1px solid #324674;
+      font-weight:700;
+      text-align:center;
+    }
+    .r503-cell{
+      min-height:54px;
+      border:1px solid #2b3a63;
+      border-radius:12px;
+      background:#0d1730;
+      padding:8px 10px;
+      display:flex;
+      align-items:center;
+    }
+    .r503-cell.out{justify-content:center; background:#101c38;}
+    .r503-cell.dest{background:#0d1b2f;}
+    .r503-port{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width:38px; height:28px; border-radius:8px;
+      background:#101a35; border:1px solid #3a4e7f; font-weight:700; margin-right:10px;
+    }
+    .r503-main{font-size:13px; font-weight:700; line-height:1.4;}
+    .r503-sub{font-size:11px; color:#aebbe1; line-height:1.4; margin-top:2px;}
+    .r503-unused{color:#7f8cb1;}
+    .r503-note{
+      margin-top:8px; font-size:12px; color:#aebbe1;
+      padding:8px 10px; border-radius:10px; background:#11182d; border:1px solid #2a375d;
+    }
+    @media (max-width:980px){
+      .r503-grid{grid-template-columns:1fr;}
+      .r503-head{display:none;}
+    }
     .note-box{
       margin-top:10px; padding:8px 10px; border-radius:10px; background:#11182d; border:1px solid #2a375d;
       color:#c6d3fa; font-size:12px; line-height:1.5;
     }
     details.summary-box{margin-top:12px;}
     details.summary-box > summary{cursor:pointer; color:#d5defa;}
-    @media (max-width:980px){ .grid{grid-template-columns:1fr;} .wdm-box{width:100%;} }
+    @media (max-width:980px){ .grid{grid-template-columns:1fr;} .wdm-box{width:100%;} .wdm-flow-row{grid-template-columns:1fr;} .wdm-side::before,.wdm-side::after{display:none;} }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1 class="title">WDM接続状況 参照ツール（視覚化版）v1.3</h1>
+    <h1 class="title">WDM接続状況 参照ツール（視覚化版 v1.5 / R503接続表示強化）</h1>
     <p class="sub">
       最新の <code>【5G_Pre5G】WDM接続状況共有_***.xlsx</code> を都度読み込んで、サイトIDから必要列を抽出し、<br>
-	表だけでなく <strong>WDM番号 / 種別 / ポート配置</strong> が見える図でも表示します。<br>
-	Excelを毎回フィルタでこねる作業は、地味に人間の尊厳を削るのでやめた方がいいです。
+      表だけでなく <strong>WDM番号 / 種別 / ポート配置</strong> と <strong>R503のIN/OUT対応とWDM接続</strong> が見える図でも表示します。表だけ眺めるのは、だいたい罰ゲームです。
     </p>
 
     <div class="grid">
@@ -180,7 +350,7 @@ S270991022"></textarea>
             <button id="saveCsvBtn" class="warn" disabled>CSV保存</button>
           </div>
           <div class="small" style="margin-top:8px;">
-            抽出列：プロジェクト名 / セクタ管理番号 / サイトID / Band / WDM管理番号 / Link（WDMport） / Link（WDMport2） / WDM種別 / WDMカスケード情報 / サイトWDM管理ID / R503_BB_PORT / R503_RU_PORT
+            抽出列：プロジェクト名 / セクタ管理番号 / サイトID / Band / WDM管理番号 / Link（WDMport） / Link（WDMport2） / WDM種別 / WDMカスケード情報 / サイトWDM管理ID / R503_BB_PORT / R503_RU_PORT<br>図表示では、R503_管理ID も使って R503 → WDM/PD の流れを見せます。
           </div>
         </div>
       </section>
@@ -201,6 +371,7 @@ S270991022"></textarea>
           <span class="pill">青 = LB</span>
           <span class="pill">橙 = HB</span>
           <span class="pill">ポート横に Band / セクタ / R503 を表示</span>
+          <span class="pill">WDM右側に R503 OUT → WDM 接続サマリを表示</span>
         </div>
 
         <div id="visualWrap" class="visual-wrap"></div>
@@ -376,6 +547,122 @@ S270991022"></textarea>
       return Array.from(new Set(arr.filter(Boolean)));
     }
 
+    function isR503Row(r){
+      return normalize(r["R503_BB_PORT"]) !== "" || normalize(r["R503_RU_PORT"]) !== "";
+    }
+
+    function buildR503DestLabel(r){
+      const wdmNo = displayValue(r["WDM管理番号"]);
+      const type = displayValue(r["WDM種別"]);
+      const p1 = portValue(r["Link（WDMport）"]);
+      const p2 = portValue(r["Link（WDMport2）"]);
+      if (wdmNo){
+        let label = `${type ? type + " " : ""}${wdmNo}`;
+        const ports = [];
+        if (p1 !== null) ports.push(`#${p1}`);
+        if (p2 !== null && p2 !== p1) ports.push(`#${p2}`);
+        if (ports.length) label += ` / ${ports.join(" → ")}`;
+        return label;
+      }
+      return "PD / 不明";
+    }
+
+    function buildR503RuLabel(r){
+      const band = displayValue(r["Band"]);
+      const sector = displayValue(r["セクタ管理番号"]);
+      const parts = [band, sector].filter(Boolean);
+      return parts.length ? parts.join(" / ") : "(情報なし)";
+    }
+
+    function renderR503Section(siteRows){
+      const r503Rows = siteRows.filter(isR503Row);
+      if (!r503Rows.length) return "";
+
+      const r503Map = new Map();
+      r503Rows.forEach(r => {
+        const key = [
+          displayValue(r["R503_管理ID"]) || "(R503管理ID空)",
+          displayValue(r["サイトWDM管理ID"]),
+          displayValue(r["WDM管理番号"]),
+          displayValue(r["WDM種別"])
+        ].join("||");
+        if (!r503Map.has(key)) r503Map.set(key, []);
+        r503Map.get(key).push(r);
+      });
+
+      let html = `
+        <div class="r503-section">
+          <div class="r503-section-head">
+            <span class="pill">R503構成</span>
+            <span class="pill">RU(IN) → R503 → WDM / PD</span>
+          </div>
+      `;
+
+      const ordered = Array.from(r503Map.entries()).sort((a,b) => a[0].localeCompare(b[0], "ja"));
+      ordered.forEach(([key, rows]) => {
+        const [r503Id, siteWdmId, wdmNo, type] = key.split("||");
+        const outPorts = unique(rows.map(r => displayValue(r["R503_BB_PORT"])));
+        const dests = unique(rows.map(buildR503DestLabel));
+        html += `
+          <div class="r503-card">
+            <div class="r503-card-head">
+              <div class="r503-title">R503 ${escapeHtml(r503Id || "(管理ID空)")}</div>
+              <span class="pill">サイトWDM管理ID ${escapeHtml(siteWdmId || "-")}</span>
+              <span class="pill">接続先 ${escapeHtml(dests.join(" / ") || "PD / 不明")}</span>
+              <span class="pill">OUT ${escapeHtml(outPorts.join(", ") || "-")}</span>
+            </div>
+            <div class="r503-grid">
+              <div class="r503-head">IN（RU）</div>
+              <div class="r503-head">OUT（BB）</div>
+              <div class="r503-head">接続先</div>
+        `;
+
+        for (let p = 16; p >= 4; p--){
+          const inRows = rows.filter(r => portValue(r["R503_RU_PORT"]) === p)
+                            .sort((a,b) => (portValue(a["R503_BB_PORT"]) || 999) - (portValue(b["R503_BB_PORT"]) || 999));
+          if (!inRows.length){
+            html += `
+              <div class="r503-cell">
+                <span class="r503-port">${p}</span>
+                <div class="r503-unused">未使用</div>
+              </div>
+              <div class="r503-cell out"><div class="r503-unused">-</div></div>
+              <div class="r503-cell dest"><div class="r503-unused">-</div></div>
+            `;
+            continue;
+          }
+
+          const ruMain = inRows.map(r => buildR503RuLabel(r)).join("<br>");
+          const ruSub = unique(inRows.map(r => displayValue(r["プロジェクト名"]))).filter(Boolean).join(" / ");
+          const outText = unique(inRows.map(r => displayValue(r["R503_BB_PORT"]) || "-")).join("<br>");
+          const destText = unique(inRows.map(buildR503DestLabel)).join("<br>");
+
+          html += `
+            <div class="r503-cell">
+              <span class="r503-port">${p}</span>
+              <div>
+                <div class="r503-main">${ruMain}</div>
+                ${ruSub ? `<div class="r503-sub">${escapeHtml(ruSub)}</div>` : ``}
+              </div>
+            </div>
+            <div class="r503-cell out"><div class="r503-main">${escapeHtml(outText)}</div></div>
+            <div class="r503-cell dest"><div class="r503-main">${escapeHtml(destText)}</div></div>
+          `;
+        }
+
+        html += `
+            </div>
+            <div class="r503-note">
+              R503はWDMとは別機器です。見た目が似ているから同じ箱に押し込むと、後で誰も理解できなくなります。
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      return html;
+    }
+
     function buildBandChipHtml(item){
       const sector = item.sector || "-";
       const r503 = [item.r503bb ? `BB:${item.r503bb}` : "", item.r503ru ? `RU:${item.r503ru}` : ""].filter(Boolean).join(" / ");
@@ -440,6 +727,81 @@ S270991022"></textarea>
       return html;
     }
 
+
+    function buildWdmPortLabel(r){
+      const p1 = portValue(r["Link（WDMport）"]);
+      const p2 = portValue(r["Link（WDMport2）"]);
+      const ports = [];
+      if (p1 !== null) ports.push(`#${p1}`);
+      if (p2 !== null && p2 !== p1) ports.push(`#${p2}`);
+      return ports.length ? ports.join(" → ") : "(WDMポート空)";
+    }
+
+    function renderR503SideForWdm(boxRows, wdmNo, type){
+      const r503Rows = boxRows.filter(r => normalize(r["R503_BB_PORT"]) !== "");
+      if (!r503Rows.length){
+        return `
+          <div class="wdm-side">
+            <div class="wdm-side-title">R503 OUT → WDM</div>
+            <div class="wdm-side-empty">R503接続なし</div>
+          </div>
+        `;
+      }
+
+      const map = new Map();
+      r503Rows.forEach(r => {
+        const key = [
+          displayValue(r["R503_管理ID"]) || "(R503管理ID空)",
+          displayValue(r["R503_BB_PORT"]) || "-",
+          buildWdmPortLabel(r),
+          buildR503RuLabel(r),
+          displayValue(r["セクタ管理番号"]),
+          displayValue(r["Band"])
+        ].join("||");
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(r);
+      });
+
+      const ordered = Array.from(map.entries()).sort((a,b) => {
+        const aa = a[0].split("||");
+        const bb = b[0].split("||");
+        const outA = parseInt(aa[1], 10);
+        const outB = parseInt(bb[1], 10);
+        const pa = isNaN(outA) ? 999 : outA;
+        const pb = isNaN(outB) ? 999 : outB;
+        if (pa !== pb) return pa - pb;
+        return aa[0].localeCompare(bb[0], 'ja');
+      });
+
+      return `
+        <div class="wdm-side">
+          <div class="wdm-side-title">R503 OUT → このWDM</div>
+          <div class="wdm-side-note">${escapeHtml(type || "-")} ${escapeHtml(wdmNo || "(WDM管理番号空)")} に入る接続</div>
+          <div class="r503-link-list">
+            ${ordered.map(([key, rows]) => {
+              const [r503Id, bbPort, wdmPorts] = key.split("||");
+              const ruPorts = unique(rows.map(r => displayValue(r["R503_RU_PORT"]) || "-")).join(", ");
+              const bandText = unique(rows.map(r => displayValue(r["Band"]))).join(" / ");
+              const sectorText = unique(rows.map(r => displayValue(r["セクタ管理番号"]))).join(", ");
+              return `
+                <div class="r503-link-item">
+                  <div class="r503-link-top">
+                    <span class="r503-link-badge">R503 ${escapeHtml(r503Id)}</span>
+                    <span class="r503-link-badge">OUT ${escapeHtml(bbPort)}</span>
+                    <span class="r503-link-arrow">→</span>
+                    <span class="r503-link-badge">WDM ${escapeHtml(wdmPorts)}</span>
+                  </div>
+                  <div class="r503-link-main">R503 OUT ${escapeHtml(bbPort)} → ${escapeHtml(type || "-")} ${escapeHtml(wdmNo || "(WDM管理番号空)")} ${escapeHtml(wdmPorts)}</div>
+                  <div class="r503-link-sub">RU側 IN: ${escapeHtml(ruPorts || "-")} / Band: ${escapeHtml(bandText || "-")} / セクタ: ${escapeHtml(sectorText || "-")}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+
     function renderVisual(rows){
       const wrap = $("visualWrap");
       wrap.innerHTML = "";
@@ -471,6 +833,8 @@ S270991022"></textarea>
           </div>
           <div class="site-sub">Band: ${escapeHtml(bandNames.join(" / ")) || "-"}</div>
         `;
+
+        siteHtml += renderR503Section(siteRows);
 
         const groupMap = new Map();
         siteRows.forEach(r => {
@@ -510,21 +874,26 @@ S270991022"></textarea>
             const tClass = typeClass(type);
             const sectors = unique(boxRows.map(r => displayValue(r["セクタ管理番号"])));
             const bands = unique(boxRows.map(r => displayValue(r["Band"])));
+            const r503Ids = unique(boxRows.map(r => displayValue(r["R503_管理ID"])));
             const r503bb = unique(boxRows.map(r => displayValue(r["R503_BB_PORT"])));
             const r503ru = unique(boxRows.map(r => displayValue(r["R503_RU_PORT"])));
             siteHtml += `
-              <div class="wdm-box ${tClass}">
-                <div class="wdm-box-title">
-                  <span>${escapeHtml(num || "(WDM管理番号空)")}</span>
-                  <span class="type-pill ${tClass}">${escapeHtml(type || "-")}</span>
+              <div class="wdm-flow-row">
+                <div class="wdm-box ${tClass}">
+                  <div class="wdm-box-title">
+                    <span>${escapeHtml(num || "(WDM管理番号空)")}</span>
+                    <span class="type-pill ${tClass}">${escapeHtml(type || "-")}</span>
+                  </div>
+                  <div class="wdm-meta">
+                    <span class="mini-pill">Band ${escapeHtml(bands.join(" / ") || "-")}</span>
+                    <span class="mini-pill">セクタ ${escapeHtml(sectors.length ? sectors.join(", ") : "-")}</span>
+                    <span class="mini-pill">R503 ${escapeHtml(r503Ids.join(", ") || "-")}</span>
+                    <span class="mini-pill">R503_BB ${escapeHtml(r503bb.join(", ") || "-")}</span>
+                    <span class="mini-pill">R503_RU ${escapeHtml(r503ru.join(", ") || "-")}</span>
+                  </div>
+                  ${renderPortsHtml(boxRows)}
                 </div>
-                <div class="wdm-meta">
-                  <span class="mini-pill">Band ${escapeHtml(bands.join(" / ") || "-")}</span>
-                  <span class="mini-pill">セクタ ${escapeHtml(sectors.length ? sectors.join(", ") : "-")}</span>
-                  <span class="mini-pill">R503_BB ${escapeHtml(r503bb.join(", ") || "-")}</span>
-                  <span class="mini-pill">R503_RU ${escapeHtml(r503ru.join(", ") || "-")}</span>
-                </div>
-                ${renderPortsHtml(boxRows)}
+                ${renderR503SideForWdm(boxRows, num, type)}
               </div>
             `;
             if (idx < orderedBoxes.length - 1){
