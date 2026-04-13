@@ -1,7 +1,8 @@
-# WDM検索ツール 配布用一式
+# WDM統合ツール 配布用一式
 
 - index.html : 公開URL用の入口ファイル
-- wdm_site_lookup_visual_v1.5.html : 本体
+- wdm_site_lookup_visual_v1.6.html : 本体
+- WDM接続状況ビューアーに、別画面タブのWDM導入判定を統合
 
 運用方法
 - GitHub Pages の公開URLは index.html 側を使う

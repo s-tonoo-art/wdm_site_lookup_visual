@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WDM接続状況 参照ツール（視覚化版 v1.5 / R503接続表示強化）</title>
+  <title>WDM接続状況＋WDM導入判定 統合ツール（視覚化版 v1.6）</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root{
@@ -297,17 +297,68 @@
     details.summary-box{margin-top:12px;}
     details.summary-box > summary{cursor:pointer; color:#d5defa;}
     @media (max-width:980px){ .grid{grid-template-columns:1fr;} .wdm-box{width:100%;} .wdm-flow-row{grid-template-columns:1fr;} .wdm-side::before,.wdm-side::after{display:none;} }
+
+    .tab-nav{display:flex; flex-wrap:wrap; gap:10px; margin:14px 0 18px;}
+    .tab-btn{
+      appearance:none; border:1px solid #40527f; background:#111936; color:#dbe5ff;
+      border-radius:12px; padding:10px 14px; font-weight:700; cursor:pointer;
+    }
+    .tab-btn.active{background:#0f5fd8; border-color:#3d8bff; color:#fff;}
+    .screen{display:none;}
+    .screen.active{display:block;}
+    .judge-shell{
+      max-width:760px; margin:0 auto;
+    }
+    .judge-card{background:#fff;border-radius:16px;border:0.5px solid #ddd;padding:2rem;width:100%;color:#222;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+    .judge-head{font-size:18px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
+    .judge-sub{font-size:12px;color:#666;margin-bottom:1.75rem;line-height:1.6}
+    .judge-section{margin-bottom:1.25rem}
+    .judge-q{font-size:13px;color:#555;margin-bottom:8px;font-weight:700}
+    .judge-pills{display:flex;flex-wrap:wrap;gap:8px}
+    .judge-pill{padding:6px 14px;border-radius:20px;border:1px solid #ccc;background:#fff;font-size:13px;cursor:pointer;color:#333;transition:all .15s;font-family:inherit}
+    .judge-pill:hover{border-color:#888;background:#f9f9f9}
+    .judge-pill.on{background:#dceeff;border-color:#2a7dd1;color:#0d4d8e;font-weight:700}
+    .judge-divider{height:1px;background:#eee;margin:1.5rem 0}
+    .judge-result-box{border-radius:12px;padding:1.25rem 1.5rem;border:1px solid #ddd;background:#f9f9f9}
+    .judge-result-box.use{background:#eaf7e8;border-color:#3a7d3a}
+    .judge-result-box.nouse{background:#fdecea;border-color:#c0392b}
+    .judge-result-box.warn{background:#fff8e1;border-color:#c67c00}
+    .judge-result-title{font-size:17px;font-weight:700;margin-bottom:8px;color:#444}
+    .judge-result-title.use{color:#2d6e2d}
+    .judge-result-title.nouse{color:#a93226}
+    .judge-result-title.warn{color:#9a5d00}
+    .judge-result-body{font-size:13px;line-height:1.8;color:#555}
+    .judge-result-body.use{color:#2d6e2d}
+    .judge-result-body.nouse{color:#a93226}
+    .judge-result-body.warn{color:#9a5d00}
+    .judge-tags{margin:6px 0 10px}
+    .judge-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin:2px 2px 2px 0}
+    .judge-tag-blue{background:#dceeff;color:#1a5fa8}
+    .judge-tag-amber{background:#fff3cd;color:#8a5e00}
+    .judge-tag-red{background:#fdecea;color:#a93226}
+    .judge-tag-green{background:#eaf7e8;color:#2d6e2d}
+    .judge-extra{margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.08);font-size:12px;line-height:2.1;color:inherit}
+    .judge-reset-btn{margin-top:1.5rem;display:block;width:100%;padding:9px;border:1px solid #ccc;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;color:#666;font-family:inherit}
+    .judge-reset-btn:hover{background:#f0f0f0}
+    .judge-note{font-size:11px;color:#666;margin-top:1rem;line-height:1.7;padding-top:1rem;border-top:1px solid #eee}
+
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1 class="title">WDM接続状況 参照ツール（視覚化版 v1.5 / R503接続表示強化）</h1>
+    <h1 class="title">WDM接続状況＋WDM導入判定 統合ツール（視覚化版 v1.6）</h1>
     <p class="sub">
       最新の <code>【5G_Pre5G】WDM接続状況共有_***.xlsx</code> を都度読み込んで、サイトIDから必要列を抽出し、<br>
-      表だけでなく <strong>WDM番号 / 種別 / ポート配置</strong> と <strong>R503のIN/OUT対応とWDM接続</strong> が見える図でも表示します。表だけ眺めるのは、だいたい罰ゲームです。
+      接続状況の可視化に加えて、添付の「WDM判定ビューアー」の判定画面も同じHTML内に統合しました。見る画面が増えるたびに別ファイルを探すのは、だいたい儀式です。
     </p>
 
-    <div class="grid">
+    <div class="tab-nav">
+      <button type="button" class="tab-btn active" data-target="screen-viewer">WDM接続状況</button>
+      <button type="button" class="tab-btn" data-target="screen-judge">WDM導入判定</button>
+    </div>
+
+    <section id="screen-viewer" class="screen active">
+      <div class="grid">
       <section class="card">
         <h2>1. Excel読込</h2>
         <div class="row">
@@ -386,7 +437,94 @@ S270991022"></textarea>
           </div>
         </details>
       </section>
-    </div>
+      </div>
+    </section>
+
+    <section id="screen-judge" class="screen">
+      <div class="judge-shell">
+        <div class="judge-card">
+          <div class="judge-head">WDM導入判定ビューアー</div>
+          <div class="judge-sub">添付の「WDM判定ビューアー.html」の判定ロジックを同居させた画面です。別ファイルを探す儀式は不要です。</div>
+
+          <div class="judge-section">
+            <div class="judge-q">① 構成タイプ</div>
+            <div class="judge-pills" id="judge-g-config">
+              <button class="judge-pill" data-g="config" data-v="sb_only">SB単独構築</button>
+              <button class="judge-pill" data-g="config" data-v="kddi">SB-KDDI共同構築</button>
+            </div>
+          </div>
+
+          <div class="judge-section">
+            <div class="judge-q">② ベンダーエリア</div>
+            <div class="judge-pills" id="judge-g-vendor">
+              <button class="judge-pill" data-g="vendor" data-v="eri">ERICSSSONエリア</button>
+              <button class="judge-pill" data-g="vendor" data-v="nok">NOKIAエリア</button>
+            </div>
+          </div>
+
+          <div class="judge-section">
+            <div class="judge-q">③ 無線構成（Band種別）</div>
+            <div class="judge-pills" id="judge-g-band">
+              <button class="judge-pill" data-g="band" data-v="fdd_only">FDD only</button>
+              <button class="judge-pill" data-g="band" data-v="tdd_only">TDD only</button>
+              <button class="judge-pill" data-g="band" data-v="td_fd">TD+FD混在</button>
+            </div>
+          </div>
+
+          <div class="judge-section" id="judge-sec-1sec" style="display:none">
+            <div class="judge-q">③-a TDD構成の詳細（1band1sec局か）</div>
+            <div class="judge-pills" id="judge-g-onesec">
+              <button class="judge-pill" data-g="onesec" data-v="no">1band1sec局ではない</button>
+              <button class="judge-pill" data-g="onesec" data-v="yes">1band1sec局</button>
+            </div>
+          </div>
+
+          <div class="judge-section">
+            <div class="judge-q">④ BBU収容タイプ</div>
+            <div class="judge-pills" id="judge-g-bbu">
+              <button class="judge-pill" data-g="bbu" data-v="normal">通常BBU</button>
+              <button class="judge-pill" data-g="bbu" data-v="fdcloud">FD-Cloud BBU収容局</button>
+            </div>
+          </div>
+
+          <div class="judge-section">
+            <div class="judge-q">⑤ 既設MISC（搭載スペース）</div>
+            <div class="judge-pills" id="judge-g-misc">
+              <button class="judge-pill" data-g="misc" data-v="yes">スペースあり</button>
+              <button class="judge-pill" data-g="misc" data-v="no">スペースなし</button>
+              <button class="judge-pill" data-g="misc" data-v="none">既設MISCなし</button>
+            </div>
+          </div>
+
+          <div class="judge-section">
+            <div class="judge-q">⑥ Link数</div>
+            <div class="judge-pills" id="judge-g-link">
+              <button class="judge-pill" data-g="link" data-v="lt10">9Link以下</button>
+              <button class="judge-pill" data-g="link" data-v="ge10">10Link以上</button>
+            </div>
+          </div>
+
+          <div class="judge-divider"></div>
+
+          <div id="judge-result-area">
+            <div class="judge-result-box">
+              <div class="judge-result-title">← 条件をすべて選択してください</div>
+              <div class="judge-result-body">6項目を選ぶと判定結果が表示されます。</div>
+            </div>
+          </div>
+
+          <button class="judge-reset-btn" id="judgeResetBtn" type="button">リセット</button>
+
+          <div class="judge-note">
+            ※ FDD only / SB単独構築はWDM割り入れ対象外（ただしTDD追加等で条件変化の場合は再確認）<br>
+            ※ TDD only：1band1sec局は設置しない（※2）<br>
+            ※ 地域要望での追加設置は不可（※3）<br>
+            ※ 既設WDM無しC-RANへのBand追加でWDM対象になっても、既設非協業局CPRIはWDMに巻き取らない
+          </div>
+        </div>
+      </div>
+    </section>
+
   </div>
 
   <script>
@@ -1104,6 +1242,152 @@ S270991022"></textarea>
 
     renderVisual([]);
     buildTable([]);
+
+    const judgeState = {};
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        const target = document.getElementById(btn.dataset.target);
+        if (target) target.classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.judge-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const g = btn.dataset.g;
+        document.querySelectorAll(`.judge-pill[data-g="${g}"]`).forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        judgeState[g] = btn.dataset.v;
+
+        if (g === 'band') {
+          const sec = $("judge-sec-1sec");
+          if (btn.dataset.v === 'tdd_only') {
+            sec.style.display = '';
+          } else {
+            sec.style.display = 'none';
+            document.querySelectorAll('.judge-pill[data-g="onesec"]').forEach(b => b.classList.remove('on'));
+            delete judgeState.onesec;
+          }
+        }
+
+        judgeEvaluate();
+      });
+    });
+
+    function judgeResetAll() {
+      document.querySelectorAll('.judge-pill').forEach(b => b.classList.remove('on'));
+      ['config','vendor','band','bbu','misc','link','onesec'].forEach(k => delete judgeState[k]);
+      $("judge-sec-1sec").style.display = 'none';
+      $("judge-result-area").innerHTML = `
+        <div class="judge-result-box">
+          <div class="judge-result-title">← 条件をすべて選択してください</div>
+          <div class="judge-result-body">6項目を選ぶと判定結果が表示されます。</div>
+        </div>`;
+    }
+
+    function judgeEvaluate() {
+      const s = judgeState;
+      const ra = $("judge-result-area");
+      const needOnesec = s.band === 'tdd_only';
+      if (!s.config || !s.vendor || !s.band || !s.bbu || !s.misc || !s.link || (needOnesec && !s.onesec)) {
+        ra.innerHTML = `
+          <div class="judge-result-box">
+            <div class="judge-result-title">← まだ未選択の項目があります</div>
+            <div class="judge-result-body">すべての条件を選ぶと判定します。</div>
+          </div>`;
+        return;
+      }
+
+      let verdict = '', cls = '', detail = '';
+      const tags = [];
+      let filterNote = '', cascadeNote = '';
+
+      if (s.bbu === 'fdcloud') {
+        verdict = '✕  WDM 設置不要';
+        cls = 'nouse';
+        detail = 'FD-Cloud BBU収容局はWDM設置対象外（明示ルール）。';
+        tags.push({ t: 'FD-Cloud除外', c: 'judge-tag-red' });
+
+      } else if (s.config === 'kddi') {
+        verdict = '◎  WDM 設置必要（全Site対象）';
+        cls = 'use';
+        detail = 'SB-KDDI共同構築局は構成・Band問わず全Site対象。問答無用。';
+        tags.push({ t: '共同構築→全Site必須', c: 'judge-tag-blue' });
+
+      } else if (s.band === 'fdd_only') {
+        verdict = '✕  WDM 設置不要（FDD only / SB単独）';
+        cls = 'nouse';
+        detail = 'FDD onlyかつSB単独構築はWDM割り入れ対象外。';
+        tags.push({ t: 'FDD only除外', c: 'judge-tag-red' });
+
+      } else if (s.band === 'tdd_only' && s.onesec === 'yes') {
+        verdict = '✕  WDM 設置不要（1band1sec局）';
+        cls = 'nouse';
+        detail = '1band1sec局はTDD onlyでも設置しない（施工要領書 ※2）。';
+        tags.push({ t: '1band1sec→設置しない', c: 'judge-tag-red' });
+
+      } else if (s.band === 'tdd_only') {
+        verdict = '○  WDM 設置必要（TDD only）';
+        cls = 'use';
+        detail = 'TDD only局（1band1sec以外）は設置対象。地域要望での追加設置は不可（※3）。';
+        tags.push({ t: 'TDD only→設置対象', c: 'judge-tag-green' });
+
+      } else if (s.band === 'td_fd') {
+        verdict = '○  WDM 設置必要（TD+FD混在）';
+        cls = 'use';
+        detail = 'TD+FD混在局は設置対象。';
+        tags.push({ t: 'TD+FD→設置対象', c: 'judge-tag-green' });
+
+      } else {
+        verdict = '— 判定不能';
+        cls = 'warn';
+        detail = '条件の組み合わせを確認してください。';
+      }
+
+      if (cls === 'use') {
+        const vLabel = s.vendor === 'eri' ? 'ERICSSSONエリア' : 'NOKIAエリア';
+        const sfpLabel = s.vendor === 'eri'
+          ? '10G SFP：Ericsson製｜25G SFP：Ericsson製(NORMAL)'
+          : '10G SFP：Nokia製｜25G SFP：Nokia製(HighSpec / LBのみ)';
+
+        if (s.misc === 'yes') {
+          filterNote = '📦 Filter設置先：既設MISCへ搭載（最優先・コスト削減）';
+          tags.push({ t: '既設MISC搭載', c: 'judge-tag-green' });
+        } else {
+          filterNote = '📦 Filter設置先：FH6387 または FH6389（OutdoorBox）を新設';
+          tags.push({ t: 'FH638x新設', c: 'judge-tag-amber' });
+        }
+
+        filterNote += `<br>📡 ${vLabel}｜WDM Filter：Ericsson製 OAD-9-S(LB/HB)`;
+        filterNote += `<br>🔌 ${sfpLabel}`;
+        filterNote += `<br>⚠️ SFPは固定波長 Colored Duplex Type — 接続PortごとにSFP型式管理が必須`;
+
+        if (s.link === 'ge10') {
+          cascadeNote = '🔗 WDMカスケード：実施（HB）— 10Link以上のため対象';
+          tags.push({ t: 'カスケードHB実施', c: 'judge-tag-blue' });
+        } else {
+          cascadeNote = '🔗 WDMカスケード：対象外（9Link以下）';
+        }
+      }
+
+      const tagsHtml = tags.map(t => `<span class="judge-tag ${t.c}">${t.t}</span>`).join('');
+      const extraHtml = (filterNote || cascadeNote)
+        ? `<div class="judge-extra">${filterNote ? filterNote + '<br>' : ''}${cascadeNote}</div>`
+        : '';
+
+      ra.innerHTML = `
+        <div class="judge-result-box ${cls}">
+          <div class="judge-result-title ${cls}">${verdict}</div>
+          <div class="judge-tags">${tagsHtml}</div>
+          <div class="judge-result-body ${cls}">${detail}${extraHtml}</div>
+        </div>`;
+    }
+
+    $("judgeResetBtn").addEventListener("click", judgeResetAll);
+
   </script>
 </body>
 </html>
