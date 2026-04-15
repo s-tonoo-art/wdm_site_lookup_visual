@@ -1,9 +1,9 @@
-# WDM統合ツール 配布用一式
+# WDM検索ツール 配布用一式 v1.7
 
 - index.html : 公開URL用の入口ファイル
-- wdm_site_lookup_visual_v1.6.html : 本体
-- WDM接続状況ビューアーに、別画面タブのWDM導入判定を統合
+- wdm_site_lookup_visual_v1.7.html : 本体
 
-運用方法
-- GitHub Pages の公開URLは index.html 側を使う
-- 本体をバージョンアップしたら、index.html の飛び先だけ変更する
+v1.7 修正点
+- R503_管理ID を「サイトID + 2桁番号」と「Fxx」に分離
+- 例: S280048555_01F1 → R503本体ID = S280048555_01 / 周波数管理番号 = F1
+- 同じ「01」は同一R503として集約表示

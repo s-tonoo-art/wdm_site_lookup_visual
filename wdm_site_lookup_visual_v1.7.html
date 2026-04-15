@@ -401,7 +401,7 @@ S270991022"></textarea>
             <button id="saveCsvBtn" class="warn" disabled>CSV保存</button>
           </div>
           <div class="small" style="margin-top:8px;">
-            抽出列：プロジェクト名 / セクタ管理番号 / サイトID / Band / WDM管理番号 / Link（WDMport） / Link（WDMport2） / WDM種別 / WDMカスケード情報 / サイトWDM管理ID / R503_BB_PORT / R503_RU_PORT<br>図表示では、R503_管理ID も使って R503 → WDM/PD の流れを見せます。
+            抽出列：プロジェクト名 / セクタ管理番号 / サイトID / Band / WDM管理番号 / Link（WDMport） / Link（WDMport2） / WDM種別 / WDMカスケード情報 / サイトWDM管理ID / R503_BB_PORT / R503_RU_PORT<br>図表示では、R503_管理ID から「サイトID+2桁番号」をR503本体、「Fxx」を周波数管理番号として分離し、R503 → WDM/PD の流れを見せます。
           </div>
         </div>
       </section>
@@ -685,6 +685,33 @@ S270991022"></textarea>
       return Array.from(new Set(arr.filter(Boolean)));
     }
 
+    function parseR503ManagementId(value){
+      const raw = normalize(value);
+      if (!raw) return { raw:"", deviceId:"", freqId:"" };
+
+      // 基本形: S280048555_01F1 / S280048555_01F01
+      let m = raw.match(/^(.*?_\d{2})(F\d{1,2})$/i);
+      if (m){
+        return { raw, deviceId:m[1], freqId:m[2].toUpperCase() };
+      }
+
+      // 念のため: S280048555_01_F1 のような揺れにも対応
+      m = raw.match(/^(.*?_\d{2})[_-]?(F\d{1,2})$/i);
+      if (m){
+        return { raw, deviceId:m[1], freqId:m[2].toUpperCase() };
+      }
+
+      return { raw, deviceId:raw, freqId:"" };
+    }
+
+    function r503DeviceId(value){
+      return parseR503ManagementId(value).deviceId;
+    }
+
+    function r503FreqId(value){
+      return parseR503ManagementId(value).freqId;
+    }
+
     function isR503Row(r){
       return normalize(r["R503_BB_PORT"]) !== "" || normalize(r["R503_RU_PORT"]) !== "";
     }
@@ -718,12 +745,8 @@ S270991022"></textarea>
 
       const r503Map = new Map();
       r503Rows.forEach(r => {
-        const key = [
-          displayValue(r["R503_管理ID"]) || "(R503管理ID空)",
-          displayValue(r["サイトWDM管理ID"]),
-          displayValue(r["WDM管理番号"]),
-          displayValue(r["WDM種別"])
-        ].join("||");
+        const parsed = parseR503ManagementId(r["R503_管理ID"]);
+        const key = parsed.deviceId || "(R503管理ID空)";
         if (!r503Map.has(key)) r503Map.set(key, []);
         r503Map.get(key).push(r);
       });
@@ -738,14 +761,17 @@ S270991022"></textarea>
 
       const ordered = Array.from(r503Map.entries()).sort((a,b) => a[0].localeCompare(b[0], "ja"));
       ordered.forEach(([key, rows]) => {
-        const [r503Id, siteWdmId, wdmNo, type] = key.split("||");
+        const r503Id = key;
+        const siteWdmIds = unique(rows.map(r => displayValue(r["サイトWDM管理ID"])));
         const outPorts = unique(rows.map(r => displayValue(r["R503_BB_PORT"])));
         const dests = unique(rows.map(buildR503DestLabel));
+        const freqIds = unique(rows.map(r => r503FreqId(r["R503_管理ID"])));
         html += `
           <div class="r503-card">
             <div class="r503-card-head">
               <div class="r503-title">R503 ${escapeHtml(r503Id || "(管理ID空)")}</div>
-              <span class="pill">サイトWDM管理ID ${escapeHtml(siteWdmId || "-")}</span>
+              <span class="pill">周波数管理番号 ${escapeHtml(freqIds.join(", ") || "-")}</span>
+              <span class="pill">サイトWDM管理ID ${escapeHtml(siteWdmIds.join(", ") || "-")}</span>
               <span class="pill">接続先 ${escapeHtml(dests.join(" / ") || "PD / 不明")}</span>
               <span class="pill">OUT ${escapeHtml(outPorts.join(", ") || "-")}</span>
             </div>
@@ -771,7 +797,11 @@ S270991022"></textarea>
           }
 
           const ruMain = inRows.map(r => buildR503RuLabel(r)).join("<br>");
-          const ruSub = unique(inRows.map(r => displayValue(r["プロジェクト名"]))).filter(Boolean).join(" / ");
+          const ruSub = unique(inRows.map(r => {
+            const freq = r503FreqId(r["R503_管理ID"]);
+            const pj = displayValue(r["プロジェクト名"]);
+            return [freq, pj].filter(Boolean).join(" / ");
+          })).filter(Boolean).join("<br>");
           const outText = unique(inRows.map(r => displayValue(r["R503_BB_PORT"]) || "-")).join("<br>");
           const destText = unique(inRows.map(buildR503DestLabel)).join("<br>");
 
@@ -780,7 +810,7 @@ S270991022"></textarea>
               <span class="r503-port">${p}</span>
               <div>
                 <div class="r503-main">${ruMain}</div>
-                ${ruSub ? `<div class="r503-sub">${escapeHtml(ruSub)}</div>` : ``}
+                ${ruSub ? `<div class="r503-sub">${ruSub}</div>` : ``}
               </div>
             </div>
             <div class="r503-cell out"><div class="r503-main">${escapeHtml(outText)}</div></div>
@@ -888,13 +918,11 @@ S270991022"></textarea>
 
       const map = new Map();
       r503Rows.forEach(r => {
+        const parsed = parseR503ManagementId(r["R503_管理ID"]);
         const key = [
-          displayValue(r["R503_管理ID"]) || "(R503管理ID空)",
+          parsed.deviceId || "(R503管理ID空)",
           displayValue(r["R503_BB_PORT"]) || "-",
-          buildWdmPortLabel(r),
-          buildR503RuLabel(r),
-          displayValue(r["セクタ管理番号"]),
-          displayValue(r["Band"])
+          buildWdmPortLabel(r)
         ].join("||");
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(r);
@@ -921,15 +949,17 @@ S270991022"></textarea>
               const ruPorts = unique(rows.map(r => displayValue(r["R503_RU_PORT"]) || "-")).join(", ");
               const bandText = unique(rows.map(r => displayValue(r["Band"]))).join(" / ");
               const sectorText = unique(rows.map(r => displayValue(r["セクタ管理番号"]))).join(", ");
+              const freqText = unique(rows.map(r => r503FreqId(r["R503_管理ID"]))).join(", ");
               return `
                 <div class="r503-link-item">
                   <div class="r503-link-top">
                     <span class="r503-link-badge">R503 ${escapeHtml(r503Id)}</span>
+                    <span class="r503-link-badge">${escapeHtml(freqText || "F-")}</span>
                     <span class="r503-link-badge">OUT ${escapeHtml(bbPort)}</span>
                     <span class="r503-link-arrow">→</span>
                     <span class="r503-link-badge">WDM ${escapeHtml(wdmPorts)}</span>
                   </div>
-                  <div class="r503-link-main">R503 OUT ${escapeHtml(bbPort)} → ${escapeHtml(type || "-")} ${escapeHtml(wdmNo || "(WDM管理番号空)")} ${escapeHtml(wdmPorts)}</div>
+                  <div class="r503-link-main">R503 ${escapeHtml(r503Id)} / ${escapeHtml(freqText || "-")} / OUT ${escapeHtml(bbPort)} → ${escapeHtml(type || "-")} ${escapeHtml(wdmNo || "(WDM管理番号空)")} ${escapeHtml(wdmPorts)}</div>
                   <div class="r503-link-sub">RU側 IN: ${escapeHtml(ruPorts || "-")} / Band: ${escapeHtml(bandText || "-")} / セクタ: ${escapeHtml(sectorText || "-")}</div>
                 </div>
               `;
@@ -1012,7 +1042,8 @@ S270991022"></textarea>
             const tClass = typeClass(type);
             const sectors = unique(boxRows.map(r => displayValue(r["セクタ管理番号"])));
             const bands = unique(boxRows.map(r => displayValue(r["Band"])));
-            const r503Ids = unique(boxRows.map(r => displayValue(r["R503_管理ID"])));
+            const r503Ids = unique(boxRows.map(r => r503DeviceId(r["R503_管理ID"])));
+            const r503Freqs = unique(boxRows.map(r => r503FreqId(r["R503_管理ID"])));
             const r503bb = unique(boxRows.map(r => displayValue(r["R503_BB_PORT"])));
             const r503ru = unique(boxRows.map(r => displayValue(r["R503_RU_PORT"])));
             siteHtml += `
@@ -1026,6 +1057,7 @@ S270991022"></textarea>
                     <span class="mini-pill">Band ${escapeHtml(bands.join(" / ") || "-")}</span>
                     <span class="mini-pill">セクタ ${escapeHtml(sectors.length ? sectors.join(", ") : "-")}</span>
                     <span class="mini-pill">R503 ${escapeHtml(r503Ids.join(", ") || "-")}</span>
+                    <span class="mini-pill">Freq ${escapeHtml(r503Freqs.join(", ") || "-")}</span>
                     <span class="mini-pill">R503_BB ${escapeHtml(r503bb.join(", ") || "-")}</span>
                     <span class="mini-pill">R503_RU ${escapeHtml(r503ru.join(", ") || "-")}</span>
                   </div>
